@@ -1,0 +1,16 @@
+library/
+temp/
+local/
+profiles/
+
+node_modules/
+
+build/
+build-templates/
+
+.idea
+.vscode
+.creator
+
+publish/
+release/

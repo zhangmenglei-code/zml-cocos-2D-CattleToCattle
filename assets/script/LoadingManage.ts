@@ -44,7 +44,7 @@ export class LoadingManage extends Component {
             if (this.progressBarNode.progress >= 1) {
                 clearInterval(this.barTimer);
                 // 跳转主场景
-                director.loadScene('MainScene');
+                director.loadScene('scene-home');
             }
         }, 100);
     }

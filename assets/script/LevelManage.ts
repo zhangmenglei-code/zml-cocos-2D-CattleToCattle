@@ -35,12 +35,6 @@ export class LevelManage extends Component {
         this._hp--;
         this.renderHp();
     }
-
-    start() {
-    }
-
-    update(deltaTime: number) {
-    }
 }
 
 

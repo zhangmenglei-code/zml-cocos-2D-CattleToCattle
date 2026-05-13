@@ -2364,8 +2364,8 @@
       "__uuid__": "07de4d82-76db-408b-9513-45eaaeb0e26b",
       "__expectedType__": "cc.Prefab"
     },
-    "BoxItemRows": 4,
-    "BoxItemCols": 4,
+    "BoxItemRows": 6,
+    "BoxItemCols": 6,
     "_id": "89vQuUdcJOXpVNpN2iP+xE"
   },
   {

@@ -115,6 +115,7 @@ export class GameBoxManage extends Component {
             }
             lastCol = radomCol;
             colArr.push(radomCol);
+            console.log(`小新位置：${i}行${radomCol}列`);
             this.buttonData[i][radomCol].isXin = true;
             this.buttonData[i][radomCol].color = colors[i];
         }
@@ -132,6 +133,17 @@ export class GameBoxManage extends Component {
                 // 小新的位置
                 const xinRow = xin.row;
                 const xinCol = xin.col;
+                // 如果是最后一个节点，则直接把剩余的空白节点都渲染成最后一个小新的颜色就行了
+                if (i === xinDatas.length - 1) {
+                    for (let row = 0; row < this.BoxItemRows; row++) {
+                        for (let col = 0; col < this.BoxItemCols; col++) {
+                            if (!this.buttonData[row][col].isXin && !this.buttonData[row][col].color) {
+                                this.buttonData[row][col].color = xinColor;
+                            }
+                        }
+                    }
+                    break;
+                }
                 // 拿到当前小新需要扩散的随机空白节点数
                 const spreadNum = Math.floor(Math.random() * remainBlankNum);
                 remainBlankNum -= spreadNum;

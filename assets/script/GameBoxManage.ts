@@ -1,5 +1,6 @@
 import { _decorator, Color, Component, EventTouch, instantiate, Label, Node, Prefab, Sprite, UITransform, Vec2, Vec3 } from 'cc';
 const { ccclass, property } = _decorator;
+import { LevelManage } from './LevelManage';
 
 // 颜色组
 const colorGroup = [
@@ -19,20 +20,19 @@ const colorGroup = [
 
 @ccclass('GameBoxManage')
 export class GameBoxManage extends Component {
+    @property(LevelManage)
+    public levelManage: LevelManage = null;
     // 子节点预载体
     @property(Prefab)
     private BoxItemPrefab: Prefab = null;
 
-    @property({type: Number, tooltip: '子节点行数'})
+    // 小新的数量 = 行数 = 列数
     private BoxItemRows: number = 0;
-    @property({type: Number, tooltip: '子节点列数'})
     private BoxItemCols: number = 0;
 
     private buttonSpacing: number = 10; // 按钮之间的间隙
 
-    xinNum: number = 0; // 小新总数（正常小新的总数 = 行列的最小值）
-
-    doubleClickDelay: number = 300 // 双击判定时间
+    doubleClickDelay: number = 200 // 双击判定时间
 
     private moveThresholdSq: number = 100 // 移动阈值平方
 
@@ -56,7 +56,9 @@ export class GameBoxManage extends Component {
     private nodeToPosMap: Map<Node, { row: number, col: number }> = new Map();
 
     onLoad() {
-        this.xinNum = Math.min(this.BoxItemRows, this.BoxItemCols); // 小新总数为行列的最小值
+        // 小新的数量 = 行数 = 列数
+        this.BoxItemRows = this.levelManage.xinNum;
+        this.BoxItemCols = this.levelManage.xinNum;
         // 初始化按钮数据
         this.initButtonData();
         // 生成按钮节点
@@ -75,118 +77,63 @@ export class GameBoxManage extends Component {
 
     // 初始化按钮数据
     private initButtonData() {
+        // 1、 初始化按钮数据
         for (let row = 0; row < this.BoxItemRows; row++) {
             this.buttonData[row] = [];
             for (let col = 0; col < this.BoxItemCols; col++) {
                 this.buttonData[row][col] = {
                     row: row,
                     col: col,
-                    status: 0, // 0表示未翻转，1表示标记为单击，2表示标记为双击
+                    status: 0, // 0表示什么都没有，1表示单击（标记X），2表示双击（标记小新）
                     isXin: false, // 是否存在小新
                     color: '' // 按钮颜色
                 }
             }
         }
-        // 把小新随机插入到数据中
-        // 规则是：
-        // a、每行、每列只能有一个小新
-        // b、某个小新不能与它一个小新的周围不能再有小新
-        // 方法就是，从第一行开始，随机选择一个列插入小新，然后在下一行随机选择一个列插入小新，但要保证不与前一个小新相邻（即不能是前一个小新的列、前一个小新的列-1、前一个小新的列+1）
-
-        // 1、随机拿到小新数量的颜色
-        const colors = colorGroup.sort(() => Math.random() - 0.5).slice(0, this.xinNum);
-        // 2、随机小新
-        let lastCol = -1;
-        const colArr: any = [] // 存储小新所在列的索引，因为同一列不能有多个小新
-        for (let i = 0; i < this.xinNum; i++) {
-            let radomCol = 0
-            // 是否有前一个小新
-            if (lastCol >= 0) {
-                // 如果有的话，再随机选择一个列，但要保证不能与前一个小新相邻
-                // 拿到所有列的索引，排除前一个小新的列、前一个小新的列-1、前一个小新的列+1
-                const lengArr = Array.from({length: this.BoxItemCols}, (_, j) => j); // 生成列索引数组 [0, 1, 2, ..., BoxItemCols - 1]
-                const excludeCols: any = [lastCol, lastCol - 1, lastCol + 1];
-                // 过滤掉排除的列
-                const validCols = lengArr.filter(col => !([...excludeCols, ...colArr] as any).includes(col));
-                const index = Math.floor(Math.random() * validCols.length);
-                radomCol = validCols[index];
-            } else {
-                radomCol = Math.floor(Math.random() * this.BoxItemCols);
-            }
-            lastCol = radomCol;
-            colArr.push(radomCol);
-            console.log(`小新位置：${i}行${radomCol}列`);
-            this.buttonData[i][radomCol].isXin = true;
-            this.buttonData[i][radomCol].color = colors[i];
+        // 2、小新的位置
+        // 随机颜色
+        const colors = colorGroup.sort(() => Math.random() - 0.5).slice(0, this.levelManage.xinNum);
+        // 随机符合小新放置条件的坐标数组
+        const resultsArr = this.getRandomNonAdjacentQueens(this.levelManage.xinNum);
+        // 把小新插入到数据中
+        for (let i = 0; i < resultsArr.length; i++) {
+            const { row, col } = resultsArr[i];
+            this.buttonData[row][col].isXin = true;
+            this.buttonData[row][col].color = colors[i];
         }
-        // 接下来处理没有小新的节点背景色
-        // 规则：每个小新节点的颜色会随机向四周扩散，扩散规则是：小新的颜色会随机扩散到上下左右四个方向的第一个没有小新的节点上，如果该节点已经有颜色了，则不再扩散。
-        //      并且每个小新的扩散个数是（1 - 剩余空白节点数）
-        //      最后一个小新则不需要随机渲染，直接把剩余的空白节点都渲染成最后一个小新的颜色就行了
-        const xinDatas = this.getXinDatas();
-        let remainBlankNum = this.BoxItemRows * this.BoxItemCols - this.xinNum;
-        if (xinDatas.length > 0) {
-            for (let i = 0; i < xinDatas.length; i++) {
-                const xin = xinDatas[i];
-                // 小新的颜色
-                const xinColor = xin.color;
-                // 小新的位置
-                const xinRow = xin.row;
-                const xinCol = xin.col;
-                // 如果是最后一个节点，则直接把剩余的空白节点都渲染成最后一个小新的颜色就行了
-                if (i === xinDatas.length - 1) {
-                    for (let row = 0; row < this.BoxItemRows; row++) {
-                        for (let col = 0; col < this.BoxItemCols; col++) {
-                            if (!this.buttonData[row][col].isXin && !this.buttonData[row][col].color) {
-                                this.buttonData[row][col].color = xinColor;
-                            }
-                        }
-                    }
-                    break;
-                }
-                // 拿到当前小新需要扩散的随机空白节点数
-                const spreadNum = Math.floor(Math.random() * remainBlankNum);
-                remainBlankNum -= spreadNum;
-                // 渲染空白节点的颜色
-                let currSpreadRow = xinRow;
-                let currSpreadCol = xinCol;
-                for (let i = 0; i < spreadNum; i++) {
-                    // 拿到上下左右四个方向的节点
-                    const upNode = currSpreadRow > 0 ? this.buttonData[currSpreadRow - 1][currSpreadCol] : null;
-                    const downNode = currSpreadRow < this.BoxItemRows - 1 ? this.buttonData[currSpreadRow + 1][currSpreadCol] : null;
-                    const leftNode = currSpreadCol > 0 ? this.buttonData[currSpreadRow][currSpreadCol - 1] : null;
-                    const rightNode = currSpreadCol < this.BoxItemCols - 1 ? this.buttonData[currSpreadRow][currSpreadCol + 1] : null;
-                    const directions = [upNode, downNode, leftNode, rightNode].filter(node => node && !node.isXin && !node.color);
-                    const index = Math.floor(Math.random() * directions.length);
-                    const currentDirectionNode = directions[index];
-                    if (currentDirectionNode) {
-                        const { row, col } = currentDirectionNode;
-                        this.buttonData[row][col].color = xinColor;
-                        currSpreadRow = row;
-                        currSpreadCol = col;
-                    } else {
-                        // 没有可以扩散的节点，结束循环
-                        break;
-                    }
-                }
-            }
+
+        // 3、处理空白节点
+        const [xinDatas, blankDatas] = this.getXinDatas();
+        // 随机一个小新不需要进行颜色渲染
+        const randomIndex = Math.floor(Math.random() * xinDatas.length);
+        const xinDatasList = xinDatas.filter((item, index) => index !== randomIndex);
+        // 这个小新需要首次渲染时，就是翻开的
+        const randomXin = xinDatas[randomIndex];
+        this.buttonData[randomXin.row][randomXin.col].status = 2;
+        // 处理空白节点，当前节点的颜色就是离它最近的小新节点的颜色
+        for (let i = 0; i < blankDatas.length; i++) {
+            const currentNode = blankDatas[i]
+            const targetNode = this.findClosestNode(currentNode, xinDatasList);
+            this.buttonData[currentNode.row][currentNode.col].color = targetNode.color ?? '#000000';
         }
     }
-    // 从二维数组中，找到所有的小新
+
+    // 从二维数组中，找到所有的小新节点、空白节点数组
     private getXinDatas() {
         const xinDatas = [];
+        const blankDatas = [];
         for (let row = 0; row < this.BoxItemRows; row++) {
             for (let col = 0; col < this.BoxItemCols; col++) {
                 if (this.buttonData[row][col].isXin) {
                     xinDatas.push(this.buttonData[row][col]);
+                } else {
+                    blankDatas.push(this.buttonData[row][col]);
                 }
             }
         }
-        return xinDatas;
+        return [xinDatas, blankDatas];
     }
 
-
-    
     // 生成按钮节点
     private generateButtons() {
         const container = this.node;
@@ -206,6 +153,8 @@ export class GameBoxManage extends Component {
         const startX = -containerWidth / 2 + padding + btnWidth / 2;
         const startY = containerHeight / 2 - padding - btnHeight / 2;
 
+        // 先清空旧按钮节点
+        container.removeAllChildren();
         for (let row = 0; row < this.BoxItemRows; row++) {
             this.buttonNodes[row] = [];
             this.buttonLabels[row] = [];
@@ -231,11 +180,21 @@ export class GameBoxManage extends Component {
                 }
 
                 // 获取 Label 并更新文本
-                const label = btnNode.getComponentInChildren(Label);
-                label.string = this.buttonData[row][col].isXin ? 'X' : this.buttonData[row][col].status.toString();
+                // const label = btnNode.getComponentInChildren(Label);
+                // label.string = this.buttonData[row][col].isXin ? 'X' : this.buttonData[row][col].status.toString();
+                
+                // 如果是小新并且是双击状态，则展示小新图片
+                if (this.buttonData[row][col].isXin && this.buttonData[row][col].status === 2) {
+                    btnNode.getChildByName('Xin').active = true;
+                    // 设置它的宽高为按钮的80%
+                    const xinTransform = btnNode.getChildByName('Xin').getComponent(UITransform);
+                    if (xinTransform) {
+                        xinTransform.setContentSize(btnWidth * 0.7, btnHeight * 0.7);
+                    }
+                }
 
                 // 保存 Label节点 和 按钮节点
-                this.buttonLabels[row][col] = label;
+                // this.buttonLabels[row][col] = label;
                 this.buttonNodes[row][col] = btnNode;
 
                 // 存储节点到行列的映射
@@ -273,14 +232,7 @@ export class GameBoxManage extends Component {
 
     // ---------- 更新按钮显示及数据状态 ----------
     private updateButtonStatus(row: number, col: number, newStatus: 0 | 1 | 2) {
-        if (row < 0 || row >= this.BoxItemRows || col < 0 || col >= this.BoxItemCols) return;
-        const data = this.buttonData[row][col];
-        if (!data || data.status === newStatus) return;
-        data.status = newStatus;
-        const label = this.buttonLabels[row][col];
-        if (label) {
-            label.string = newStatus.toString();
-        }
+        
     }
 
     // 双击处理
@@ -295,9 +247,28 @@ export class GameBoxManage extends Component {
     private onSingleClick(btnNode: Node) {
         const pos = this.nodeToPosMap.get(btnNode);
         if (pos) {
-            const data = this.buttonData[pos.row][pos.col];
-            if (data && data.status === 0) {
-                this.updateButtonStatus(pos.row, pos.col, 1);
+            const { row, col } = pos;
+            // 如果当前节点已经是双击状态，且是小新，则不更新
+            if (this.buttonData[row][col].status === 2 && this.buttonData[row][col].isXin) {
+                return;
+            }
+            // 处理按钮上的节点
+            const btnNode = this.buttonNodes[row][col];
+            const xinTransform = btnNode.getChildByName('X').getComponent(Animation);
+            if (this.buttonData[row][col].status === 0) {
+                // 如果是单击，则展示按钮的X节点，并播放动画
+                this.buttonData[row][col].status = 1
+                btnNode.getChildByName('X').active = true;
+                if (xinTransform) {
+                    xinTransform.play();
+                }
+            } else {
+                // 如果已经展示了X节点，则隐藏X节点，并停止动画
+                this.buttonData[row][col].status = 0
+                if (xinTransform) {
+                    xinTransform.stop();
+                }
+                btnNode.getChildByName('X').active = false;
             }
         }
     }
@@ -306,10 +277,7 @@ export class GameBoxManage extends Component {
     private onHoverEnter(btnNode: Node) {
         const pos = this.nodeToPosMap.get(btnNode);
         if (pos) {
-            const data = this.buttonData[pos.row][pos.col];
-            if (data && data.status === 0) {
-                this.updateButtonStatus(pos.row, pos.col, 1);
-            }
+            this.onSingleClick(btnNode);
         }
     }
 
@@ -429,6 +397,124 @@ export class GameBoxManage extends Component {
         this.hasMovedExceedThreshold = false;
         this.lastClickButton = null;
         this.currentHoverButton = null;
+    }
+
+    // --------------------------- 算法逻辑 ---------------------------
+    // 回溯算法 - 八皇后问题
+    /**
+     * 生成 N×N 宫格中所有满足以下条件的皇后坐标集合：
+     * 1. 每行每列恰好一个皇后
+     * 2. 任意两个皇后的八个相邻方向（包括对角线）上无其他皇后
+     * @param n 棋盘大小（行数=列数=皇后数）
+     * @returns 所有解的数组，每个解是一个坐标对象数组 [{row, col}, ...]
+     */
+    private generateNonAdjacentQueens(n: number): { row: number; col: number }[][] {
+        // 已知无解的情况
+        if (n === 2 || n === 3) return [];
+        if (n === 1) return [[{ row: 0, col: 0 }]];
+
+        const solutions: number[][] = [];          // 存储每行皇后所在列的索引
+        const cols: boolean[] = Array(n).fill(false);
+        const diag1: boolean[] = Array(2 * n - 1).fill(false); // r - c + n - 1
+        const diag2: boolean[] = Array(2 * n - 1).fill(false); // r + c
+        const queensCol: number[] = [];
+
+        function backtrack(row: number): void {
+            if (row === n) {
+                solutions.push([...queensCol]);
+                return;
+            }
+            for (let col = 0; col < n; col++) {
+                if (cols[col]) continue;
+                const d1 = row - col + n - 1;
+                const d2 = row + col;
+                if (diag1[d1] || diag2[d2]) continue;
+
+                // 标准 N 皇后已经禁止了同一对角线（包括相邻对角线），无需额外判断
+                cols[col] = true;
+                diag1[d1] = true;
+                diag2[d2] = true;
+                queensCol.push(col);
+                backtrack(row + 1);
+                queensCol.pop();
+                cols[col] = false;
+                diag1[d1] = false;
+                diag2[d2] = false;
+            }
+        }
+        backtrack(0);
+        // 将列索引数组转换为坐标对象数组
+        return solutions.map(solution => solution.map((col, row) => ({ row, col })));
+    }
+
+    // 同上 - 回溯算法 - 随机获取一个符合条件的
+    private getRandomNonAdjacentQueens(n: number): { row: number; col: number }[] | null {
+        if (n === 2 || n === 3) return null;
+        if (n === 1) return [{ row: 0, col: 0 }];
+
+        const cols: boolean[] = Array(n).fill(false);
+        const diag1: boolean[] = Array(2 * n - 1).fill(false);
+        const diag2: boolean[] = Array(2 * n - 1).fill(false);
+        const queensCol: number[] = [];
+
+        function backtrack(row: number): boolean {
+            if (row === n) return true;
+            // 随机打乱列顺序，以随机获取一个解
+            const order = Array.from({ length: n }, (_, i) => i);
+            for (let i = order.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [order[i], order[j]] = [order[j], order[i]];
+            }
+            for (const col of order) {
+                if (cols[col]) continue;
+                const d1 = row - col + n - 1;
+                const d2 = row + col;
+                if (diag1[d1] || diag2[d2]) continue;
+                cols[col] = true;
+                diag1[d1] = true;
+                diag2[d2] = true;
+                queensCol.push(col);
+                if (backtrack(row + 1)) return true;
+                queensCol.pop();
+                cols[col] = false;
+                diag1[d1] = false;
+                diag2[d2] = false;
+            }
+            return false;
+        }
+
+        if (backtrack(0)) {
+            return queensCol.map((col, row) => ({ row, col }));
+        }
+        return null;
+    }
+
+    /**
+     * 从节点列表中找出距离当前节点最近的一个节点（欧氏距离）
+     * @param currentNode 当前节点，包含 row, col 坐标
+     * @param otherNodeList 其他节点数组，每个包含 row, col 坐标
+     * @returns 距离最近的节点对象（若列表为空则返回 null），距离相同时随机返回一个
+     */
+    private findClosestNode(currentNode: any, otherNodeList: any[]): any | null {
+        if (otherNodeList.length === 0) return null;
+        let minDistSq = Infinity;
+        let closestNodes: any[] = [];
+
+        for (const node of otherNodeList) {
+            const dx = node.row - currentNode.row;
+            const dy = node.col - currentNode.col;
+            const distSq = dx * dx + dy * dy;
+            
+            if (distSq < minDistSq) {
+                minDistSq = distSq;
+                closestNodes = [node];
+            } else if (distSq === minDistSq) {
+                closestNodes.push(node);
+            }
+        }
+        // 如果有多个最近节点，随机返回其中一个
+        const randomIndex = Math.floor(Math.random() * closestNodes.length);
+        return closestNodes[randomIndex];
     }
 }
 

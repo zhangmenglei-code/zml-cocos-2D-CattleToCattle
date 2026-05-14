@@ -1,4 +1,4 @@
-import { _decorator, Component, instantiate, Node, Prefab } from 'cc';
+import { _decorator, CCInteger, Component, instantiate, Label, Node, Prefab } from 'cc';
 const { ccclass, property } = _decorator;
 
 @ccclass('LevelManage')
@@ -10,9 +10,19 @@ export class LevelManage extends Component {
     @property(Node)
     private hpBoxNode: Node = null;
 
+    // 剩余小新展示节点
+    @property({ type: Label, tooltip: '剩余小新数量展示节点' })
+    private remainXinLabel: Label = null;
+
+    // 小新的总数量 = 行数 = 列数
+    @property({type: CCInteger, min: 4, max: 12, tooltip: '小新数量（>=4）'})
+    public xinNum: number = 4;
+
     private _hp: number = 3; // 生命值
 
     onLoad() {
+        // 剩余小新数量展示节点
+        this.remainXinLabel.string = this.xinNum.toString();
         // 渲染生命值
         this.renderHp();
     }
@@ -33,6 +43,11 @@ export class LevelManage extends Component {
     // 减少生命值
     decreaseHp() {
         this._hp--;
+        this.renderHp();
+    }
+    // 增加生命值
+    increaseHp() {
+        this._hp++;
         this.renderHp();
     }
 }

@@ -1,4 +1,4 @@
-import { _decorator, CCInteger, Component, instantiate, Label, Node, Prefab } from 'cc';
+import { _decorator, AudioSource, CCInteger, Component, director, instantiate, Label, Node, Prefab } from 'cc';
 const { ccclass, property } = _decorator;
 
 @ccclass('LevelManage')
@@ -17,6 +17,25 @@ export class LevelManage extends Component {
     // 小新的总数量 = 行数 = 列数
     @property({type: CCInteger, min: 4, max: 12, tooltip: '小新数量（>=4）'})
     public xinNum: number = 4;
+
+    // 小新的笑声音效
+    @property(AudioSource)
+    private xinSound: AudioSource = null;
+    // 小新点击错误的音效
+    @property(AudioSource)
+    private xinErrorSound: AudioSource = null;
+
+    // 当前关卡通关音效
+    @property({ type: AudioSource, tooltip: '当前关卡通关音效' })
+    private levelWinSound: AudioSource = null;
+
+    // 当前关卡失败音效
+    @property({ type: AudioSource, tooltip: '当前关卡失败音效' })
+    private levelLoseSound: AudioSource = null;
+
+    // 游戏失败节点
+    @property(Node)
+    private loseNode: Node = null;
 
     private _hp: number = 3; // 生命值
 
@@ -41,14 +60,50 @@ export class LevelManage extends Component {
     }
 
     // 减少生命值
-    decreaseHp() {
+    public decreaseHp() {
         this._hp--;
         this.renderHp();
+        if (this._hp <= 0) {
+            // 游戏暂停
+            director.pause();
+            // 显示游戏失败节点
+            this.loseNode.active = true;
+            // 播放游戏失败音效
+            this.levelLoseSound.play();
+        } else {
+            this.xinErrorSound.play();
+        }
     }
+
     // 增加生命值
-    increaseHp() {
+    public increaseHp() {
         this._hp++;
         this.renderHp();
+    }
+
+    // 减少小新
+    public decreaseXin() {
+        this.xinNum--;
+        this.remainXinLabel.string = this.xinNum.toString();
+        this.xinSound.play();
+    }
+
+    // 返回主界面
+    backToMain() {
+        // 恢复游戏
+        director.resume();
+        // 跳转到主界面
+        director.loadScene('scene-home');
+    }
+
+    // 重新加载当前关卡
+    reLoadLevel() {
+        // 恢复游戏
+        director.resume();
+        // 隐藏失败节点
+        this.loseNode.active = false;
+        // 跳转到当前关卡
+        director.loadScene(director.getScene().name);
     }
 }
 

@@ -24,6 +24,10 @@ export class LoadingManage extends Component {
     start() {
         // 开始加载资源
         this.loadResource();
+        // 加载主界面
+        director.preloadScene('scene-home');
+        // 加载游戏场景
+        director.preloadScene('scene-level');
     }
 
     update(deltaTime: number) {

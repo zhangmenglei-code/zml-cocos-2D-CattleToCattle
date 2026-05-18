@@ -151,7 +151,6 @@ export class GameManage extends Component {
     }
 
     start() {
-
     }
 
     update(deltaTime: number) {

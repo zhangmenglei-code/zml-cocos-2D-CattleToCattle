@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, EventTouch, instantiate, Label, Node, Prefab, Sprite, UITransform, Vec2, Vec3 } from 'cc';
+import { _decorator, AudioSource, Color, Component, EventTouch, instantiate, Label, Node, Prefab, Sprite, tween, UITransform, Vec2, Vec3, Animation } from 'cc';
 const { ccclass, property } = _decorator;
 import { LevelManage } from './LevelManage';
 
@@ -26,20 +26,29 @@ export class GameBoxManage extends Component {
     @property(Prefab)
     private BoxItemPrefab: Prefab = null;
 
+    // X的预载体
+    @property(Prefab)
+    private BoxItemXPrefab: Prefab = null;
+
+    // 小新预载体
+    @property(Prefab)
+    private BoxItemXinPrefab: Prefab = null;
+
     // 小新的数量 = 行数 = 列数
     private BoxItemRows: number = 0;
     private BoxItemCols: number = 0;
 
+    private buttonWidth: number = 0;
+    private buttonHeight: number = 0;
     private buttonSpacing: number = 10; // 按钮之间的间隙
 
-    doubleClickDelay: number = 200 // 双击判定时间
+    doubleClickDelay: number = 150 // 双击判定时间
 
     private moveThresholdSq: number = 100 // 移动阈值平方
 
     // 按钮数据
     private buttonData: any[] = [];   // 数据数组，二维数组
     private buttonNodes: any[] = [];  // 生成的按钮节点（与数据索引对应）
-    private buttonLabels: any[] = []; // 对应的 Label 组件
 
     // 触摸状态
     private touchStartPos: Vec2 = new Vec2(); // 触摸开始位置
@@ -54,6 +63,12 @@ export class GameBoxManage extends Component {
 
     // 节点到行列的映射（用于快速查找）
     private nodeToPosMap: Map<Node, { row: number, col: number }> = new Map();
+
+    // 缩放比例
+    private scaleFactor: number = 0.8;
+
+    // 缩放的按钮集合，用于按钮复原
+    private shrinkedButtons: Set<Node> = new Set();
 
     onLoad() {
         // 小新的数量 = 行数 = 列数
@@ -84,7 +99,7 @@ export class GameBoxManage extends Component {
                 this.buttonData[row][col] = {
                     row: row,
                     col: col,
-                    status: 0, // 0表示什么都没有，1表示单击（标记X），2表示双击（标记小新）
+                    status: 0, // 0表示什么都没有，1表示单击（标记X），2表示双击（标记小新）, 3表示失败
                     isXin: false, // 是否存在小新
                     color: '' // 按钮颜色
                 }
@@ -146,31 +161,30 @@ export class GameBoxManage extends Component {
         const availableWidth = containerWidth - padding * 2;
         const availableHeight = containerHeight - padding * 2;
 
-        const btnWidth = (availableWidth - (this.buttonSpacing * (this.BoxItemCols - 1))) / this.BoxItemCols;
-        const btnHeight = (availableHeight - (this.buttonSpacing * (this.BoxItemRows - 1))) / this.BoxItemRows;
+        this.buttonWidth = (availableWidth - (this.buttonSpacing * (this.BoxItemCols - 1))) / this.BoxItemCols;
+        this.buttonHeight = (availableHeight - (this.buttonSpacing * (this.BoxItemRows - 1))) / this.BoxItemRows;
 
         // 起始点坐标（左下角为原点，计算时需转换到中心锚点）
-        const startX = -containerWidth / 2 + padding + btnWidth / 2;
-        const startY = containerHeight / 2 - padding - btnHeight / 2;
+        const startX = -containerWidth / 2 + padding + this.buttonWidth / 2;
+        const startY = containerHeight / 2 - padding - this.buttonHeight / 2;
 
         // 先清空旧按钮节点
         container.removeAllChildren();
         for (let row = 0; row < this.BoxItemRows; row++) {
             this.buttonNodes[row] = [];
-            this.buttonLabels[row] = [];
             for (let col = 0; col < this.BoxItemCols; col++) {
                 const btnNode = instantiate(this.BoxItemPrefab);
                 btnNode.parent = container;
 
                 // 设置位置
-                const x = startX + col * (btnWidth + this.buttonSpacing);
-                const y = startY - row * (btnHeight + this.buttonSpacing);
+                const x = startX + col * (this.buttonWidth + this.buttonSpacing);
+                const y = startY - row * (this.buttonHeight + this.buttonSpacing);
                 btnNode.setPosition(x, y, 0);
 
                 // 设置尺寸
                 const btnTransform = btnNode.getComponent(UITransform);
                 if (btnTransform) {
-                    btnTransform.setContentSize(btnWidth, btnHeight);
+                    btnTransform.setContentSize(this.buttonWidth, this.buttonHeight);
                 }
 
                 // 设置颜色
@@ -179,22 +193,23 @@ export class GameBoxManage extends Component {
                     btnSprite.color = new Color(this.buttonData[row][col].color);
                 }
 
-                // 获取 Label 并更新文本
-                // const label = btnNode.getComponentInChildren(Label);
-                // label.string = this.buttonData[row][col].isXin ? 'X' : this.buttonData[row][col].status.toString();
-                
                 // 如果是小新并且是双击状态，则展示小新图片
                 if (this.buttonData[row][col].isXin && this.buttonData[row][col].status === 2) {
-                    btnNode.getChildByName('Xin').active = true;
-                    // 设置它的宽高为按钮的80%
-                    const xinTransform = btnNode.getChildByName('Xin').getComponent(UITransform);
-                    if (xinTransform) {
-                        xinTransform.setContentSize(btnWidth * 0.7, btnHeight * 0.7);
-                    }
+                    const xinNode = instantiate(this.BoxItemXinPrefab)
+                    const xTransform = xinNode.getComponent(UITransform);
+                    xinNode.parent = btnNode;
+                    xTransform.setContentSize(this.buttonWidth * this.scaleFactor, this.buttonHeight * this.scaleFactor);
+                    // 减少小新数量
+                    this.levelManage.decreaseXin();
+                    // 播放动画
+                    const xinAni = xinNode.getComponent(Animation);
+                    const clips = xinAni.clips
+                    xinAni.play(clips[1].name);
+                    xinAni.on(Animation.EventType.FINISHED, () => {
+                        xinAni.play(clips[0].name);
+                    });
                 }
 
-                // 保存 Label节点 和 按钮节点
-                // this.buttonLabels[row][col] = label;
                 this.buttonNodes[row][col] = btnNode;
 
                 // 存储节点到行列的映射
@@ -230,46 +245,89 @@ export class GameBoxManage extends Component {
         return null;
     }
 
-    // ---------- 更新按钮显示及数据状态 ----------
-    private updateButtonStatus(row: number, col: number, newStatus: 0 | 1 | 2) {
-        
-    }
 
     // 双击处理
     private onDoubleClick(btnNode: Node) {
         const pos = this.nodeToPosMap.get(btnNode);
         if (pos) {
-            this.updateButtonStatus(pos.row, pos.col, 2);
+            const { row, col } = pos;
+            if (this.buttonData[row][col].status === 2 && this.buttonData[row][col].isXin) {
+                return;
+            }
+            if (this.buttonData[row][col].status !== 3) {
+                btnNode.removeAllChildren();
+                // 判断是否是小新节点，如果是，则添加小新图片，否则当前节点为失败
+                if (this.buttonData[row][col].isXin) {
+                    // 如果是小新节点，则展示小新图片
+                    this.buttonData[row][col].status = 2;
+                    const xinNode = instantiate(this.BoxItemXinPrefab)
+                    const xTransform = xinNode.getComponent(UITransform);
+                    xinNode.parent = btnNode;
+                    xTransform.setContentSize(this.buttonWidth * this.scaleFactor, this.buttonHeight * this.scaleFactor);
+                    // 减少小新数量
+                    this.levelManage.decreaseXin();
+                    // 播放动画
+                    const xinAni = xinNode.getComponent(Animation);
+                    const clips = xinAni.clips
+                    xinAni.play(clips[1].name);
+                    xinAni.on(Animation.EventType.FINISHED, () => {
+                        xinAni.play(clips[0].name);
+                    });
+                } else {
+                    this.buttonData[row][col].status = 3
+                    const xNode = instantiate(this.BoxItemXPrefab)
+                    const xTransform = xNode.getComponent(UITransform);
+                    xNode.parent = btnNode;
+                    xTransform.setContentSize(this.buttonWidth * this.scaleFactor, this.buttonHeight * this.scaleFactor);
+                    // 设置颜色
+                    const btnSprite = btnNode.getComponent(Sprite);
+                    if (btnSprite) {
+                        btnSprite.color = new Color('#000000');
+                    }
+                    const anim = xNode.getComponent(Animation)
+                    anim.play();
+                    // 可选：动画结束后自动恢复按钮颜色或做其他事情
+                    anim.once(Animation.EventType.FINISHED, () => {
+                        // 减少生命值
+                        this.levelManage.decreaseHp();
+                    });
+                }
+            }
+            navigator.vibrate(80)
         }
     }
 
     // 单击处理
-    private onSingleClick(btnNode: Node) {
+    private onSingleClick(btnNode: Node, isHover: boolean) {
         const pos = this.nodeToPosMap.get(btnNode);
         if (pos) {
             const { row, col } = pos;
             // 如果当前节点已经是双击状态，且是小新，则不更新
-            if (this.buttonData[row][col].status === 2 && this.buttonData[row][col].isXin) {
+            if (
+                (this.buttonData[row][col].status === 2 && this.buttonData[row][col].isXin) ||
+                (this.buttonData[row][col].status === 3)
+            ) {
                 return;
             }
-            // 处理按钮上的节点
-            const btnNode = this.buttonNodes[row][col];
-            const xinTransform = btnNode.getChildByName('X').getComponent(Animation);
-            if (this.buttonData[row][col].status === 0) {
-                // 如果是单击，则展示按钮的X节点，并播放动画
-                this.buttonData[row][col].status = 1
-                btnNode.getChildByName('X').active = true;
-                if (xinTransform) {
-                    xinTransform.play();
+            if (this.buttonData[row][col].status !== 3) {
+                // 处理按钮上的节点
+                if (this.buttonData[row][col].status === 0) {
+                    // 如果是单击，则添加X节点，并播放动画
+                    this.buttonData[row][col].status = 1
+                    const xNode = instantiate(this.BoxItemXPrefab)
+                    const xTransform = xNode.getComponent(UITransform);
+                    xNode.parent = btnNode;
+                    xTransform.setContentSize(this.buttonWidth * this.scaleFactor, this.buttonHeight * this.scaleFactor);
+                } else {
+                    // 如果已经展示了X节点，则去除X节点
+                    this.buttonData[row][col].status = 0
+                    const BoxItemXNode = btnNode.getChildByName('BoxItemXPrefab')
+                    if (BoxItemXNode) {
+                        BoxItemXNode.removeFromParent();
+                    }
                 }
-            } else {
-                // 如果已经展示了X节点，则隐藏X节点，并停止动画
-                this.buttonData[row][col].status = 0
-                if (xinTransform) {
-                    xinTransform.stop();
-                }
-                btnNode.getChildByName('X').active = false;
             }
+            navigator.vibrate(80)
         }
     }
 
@@ -277,7 +335,7 @@ export class GameBoxManage extends Component {
     private onHoverEnter(btnNode: Node) {
         const pos = this.nodeToPosMap.get(btnNode);
         if (pos) {
-            this.onSingleClick(btnNode);
+            this.onSingleClick(btnNode, true);
         }
     }
 
@@ -298,6 +356,7 @@ export class GameBoxManage extends Component {
 
     // ---------- 触摸事件实现 ----------
     private onTouchStart(event: EventTouch) {
+        this.expandAllShrinkedButtons();
         const touchPos = event.getUILocation();
         this.touchStartPos.set(touchPos.x, touchPos.y);
         this.hasMovedExceedThreshold = false;
@@ -306,6 +365,8 @@ export class GameBoxManage extends Component {
         if (!currentBtn) return;
 
         const now = Date.now();
+
+        this.shrinkButton(currentBtn); // 收缩按钮
 
         // 双击判定
         // 检查是否正在等待双击，且点击的按钮与上一次相同，且移动未超过阈值，且时间间隔在双击判定范围内
@@ -338,7 +399,7 @@ export class GameBoxManage extends Component {
         this.clickTimer = setTimeout(() => {
             // 单击判定：如果仍在等待双击且未超过移动阈值，则执行单击逻辑
             if (this.isWaitingForDoubleClick && !this.hasMovedExceedThreshold) {
-                this.onSingleClick(currentBtn);
+                this.onSingleClick(currentBtn, false);
             }
             this.isWaitingForDoubleClick = false;
             this.clickTimer = null;
@@ -364,17 +425,29 @@ export class GameBoxManage extends Component {
             }
         }
 
+        // 保证只有当前按钮处于缩小状态，其他全部复原
+        if (currentBtn) {
+            this.shrinkButton(currentBtn)
+            // 复原所有其他被缩小的按钮
+            this.shrinkedButtons.forEach(btn => {
+                if (btn !== currentBtn) {
+                    this.expandButton(btn);
+                }
+            });
+        } else {
+            this.expandAllShrinkedButtons();
+        }
+
         // 滑动经过：进入新按钮区域时改变状态
         if (currentBtn && currentBtn !== this.currentHoverButton) {
             this.onHoverEnter(currentBtn);
-            this.currentHoverButton = currentBtn;
-        } else if (!currentBtn) {
-            this.currentHoverButton = null;
         }
+        this.currentHoverButton = currentBtn;
     }
 
     // 触摸结束
     private onTouchEnd(event: EventTouch) {
+        this.expandAllShrinkedButtons();
         // 检查是否移动超过阈值
         if (this.hasMovedExceedThreshold) {
             if (this.clickTimer) {
@@ -389,6 +462,7 @@ export class GameBoxManage extends Component {
 
     // 触摸取消
     private onTouchCancel(event: EventTouch) {
+        this.expandAllShrinkedButtons();
         if (this.clickTimer) {
             clearTimeout(this.clickTimer);
             this.clickTimer = null;
@@ -515,6 +589,33 @@ export class GameBoxManage extends Component {
         // 如果有多个最近节点，随机返回其中一个
         const randomIndex = Math.floor(Math.random() * closestNodes.length);
         return closestNodes[randomIndex];
+    }
+
+    // 按钮缩小
+    private shrinkButton(buttonNode: Node) {
+        if (!buttonNode) return;
+        if (this.shrinkedButtons.has(buttonNode)) return; // 已经缩小
+        tween(buttonNode).stop();
+        tween(buttonNode).to(0.05, { scale: new Vec3(0.9, 0.9, 1) }).start();
+        this.shrinkedButtons.add(buttonNode);
+    }
+    // 按钮放大
+    private expandButton(buttonNode: Node) {
+        if (!buttonNode) return;
+        if (!this.shrinkedButtons.has(buttonNode)) return; // 未缩小
+        tween(buttonNode).stop();
+        tween(buttonNode).to(0.05, { scale: new Vec3(1, 1, 1) }).start();
+        this.shrinkedButtons.delete(buttonNode);
+    }
+    恢复所有缩小的按钮
+    private expandAllShrinkedButtons() {
+        this.shrinkedButtons.forEach(btn => {
+            if (btn && btn.isValid) {
+                tween(btn).stop();
+                btn.setScale(1, 1, 1); // 直接设置，避免动画冲突
+            }
+        });
+        this.shrinkedButtons.clear();
     }
 }
 

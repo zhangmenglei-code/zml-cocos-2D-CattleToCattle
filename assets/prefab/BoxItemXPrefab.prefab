@@ -1,7 +1,7 @@
 [
   {
     "__type__": "cc.Prefab",
-    "_name": "BoxItemPrefab",
+    "_name": "BoxItemXPrefab",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_native": "",
@@ -13,7 +13,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "BoxItemPrefab",
+    "_name": "BoxItemXPrefab",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": null,
@@ -25,10 +25,13 @@
       },
       {
         "__id__": 4
+      },
+      {
+        "__id__": 6
       }
     ],
     "_prefab": {
-      "__id__": 6
+      "__id__": 8
     },
     "_lpos": {
       "__type__": "cc.Vec3",
@@ -85,7 +88,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "10gi2c1S9GLJ1XayDZ7NAu"
+    "fileId": "9c2GFFOatEu60Et6EYDjT2"
   },
   {
     "__type__": "cc.Sprite",
@@ -104,16 +107,16 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
+      "r": 255,
+      "g": 255,
+      "b": 255,
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "7d8f9b89-4fd1-4c9f-a3ab-38ec7cded7ca@f9941",
+      "__uuid__": "bdb3b76e-7e44-47b0-aa30-236f939b9e5a@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
-    "_type": 1,
+    "_type": 0,
     "_fillType": 0,
     "_sizeMode": 0,
     "_fillCenter": {
@@ -123,14 +126,43 @@
     },
     "_fillStart": 0,
     "_fillRange": 0,
-    "_isTrimmedMode": true,
+    "_isTrimmedMode": false,
     "_useGrayscale": false,
     "_atlas": null,
     "_id": ""
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "9e3DAU9p5LtbslTdEoufYo"
+    "fileId": "68c/RHEIlAC4LLvLuePSVt"
+  },
+  {
+    "__type__": "cc.Animation",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 1
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 7
+    },
+    "playOnLoad": true,
+    "_clips": [
+      {
+        "__uuid__": "e26aa327-c0ef-467f-939f-861e61c43da4",
+        "__expectedType__": "cc.AnimationClip"
+      }
+    ],
+    "_defaultClip": {
+      "__uuid__": "e26aa327-c0ef-467f-939f-861e61c43da4",
+      "__expectedType__": "cc.AnimationClip"
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "aeTD8TkIBKFpOa/7MCryMC"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -140,7 +172,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "c7dm/VsBBNWZRZ+ptMcMw6",
+    "fileId": "9bEwb5P/1Kd5G9/ooBfouP",
     "instance": null,
     "targetOverrides": null
   }

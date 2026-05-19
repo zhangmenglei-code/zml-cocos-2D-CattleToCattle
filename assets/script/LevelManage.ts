@@ -20,7 +20,7 @@ export class LevelManage extends Component {
 
     // 小新的笑声音效
     @property(AudioSource)
-    private xinSound: AudioSource = null;
+    public xinSound: AudioSource = null;
     // 小新点击错误的音效
     @property(AudioSource)
     private xinErrorSound: AudioSource = null;
@@ -38,6 +38,8 @@ export class LevelManage extends Component {
     private loseNode: Node = null;
 
     private _hp: number = 3; // 生命值
+
+    public isEnd: boolean = false; // 当前关卡是否结束
 
     onLoad() {
         // 剩余小新数量展示节点
@@ -64,6 +66,7 @@ export class LevelManage extends Component {
         this._hp--;
         this.renderHp();
         if (this._hp <= 0) {
+            this.xinErrorSound.stop()
             // 游戏暂停
             director.pause();
             // 显示游戏失败节点
@@ -86,6 +89,9 @@ export class LevelManage extends Component {
         this.xinNum--;
         this.remainXinLabel.string = this.xinNum.toString();
         this.xinSound.play();
+        if (this.xinNum <= 0) {
+            this.isEnd = true;
+        }
     }
 
     // 返回主界面

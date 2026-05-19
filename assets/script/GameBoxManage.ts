@@ -37,12 +37,13 @@ export class GameBoxManage extends Component {
     // 小新的数量 = 行数 = 列数
     private BoxItemRows: number = 0;
     private BoxItemCols: number = 0;
+    private xinNodes: Node[] = [];
 
     private buttonWidth: number = 0;
     private buttonHeight: number = 0;
     private buttonSpacing: number = 10; // 按钮之间的间隙
 
-    doubleClickDelay: number = 150 // 双击判定时间
+    doubleClickDelay: number = 200 // 双击判定时间
 
     private moveThresholdSq: number = 100 // 移动阈值平方
 
@@ -208,6 +209,7 @@ export class GameBoxManage extends Component {
                     xinAni.on(Animation.EventType.FINISHED, () => {
                         xinAni.play(clips[0].name);
                     });
+                    this.xinNodes.push(xinNode)
                 }
 
                 this.buttonNodes[row][col] = btnNode;
@@ -264,15 +266,31 @@ export class GameBoxManage extends Component {
                     const xTransform = xinNode.getComponent(UITransform);
                     xinNode.parent = btnNode;
                     xTransform.setContentSize(this.buttonWidth * this.scaleFactor, this.buttonHeight * this.scaleFactor);
-                    // 减少小新数量
+                    this.xinNodes.push(xinNode)
+                    if (this.levelManage.xinNum > 1) {
+                        // 播放动画
+                        const xinAni = xinNode.getComponent(Animation);
+                        const clips = xinAni.clips
+                        xinAni.play(clips[1].name);
+                        xinAni.on(Animation.EventType.FINISHED, () => {
+                            xinAni.play(clips[0].name);
+                        });
+                        
+                    } else {
+                        // 播放所有小新动画
+                        this.xinNodes.forEach(itemNode => {
+                            // 播放动画
+                            const xinAni = itemNode.getComponent(Animation);
+                            const clips = xinAni.clips
+                            xinAni.play(clips[1].name);
+                            xinAni.on(Animation.EventType.FINISHED, () => {
+                                xinAni.play(clips[0].name);
+                            });
+                        })
+                        // 游戏结束
+                        this.gameOver()
+                    }
                     this.levelManage.decreaseXin();
-                    // 播放动画
-                    const xinAni = xinNode.getComponent(Animation);
-                    const clips = xinAni.clips
-                    xinAni.play(clips[1].name);
-                    xinAni.on(Animation.EventType.FINISHED, () => {
-                        xinAni.play(clips[0].name);
-                    });
                 } else {
                     this.buttonData[row][col].status = 3
                     const xNode = instantiate(this.BoxItemXPrefab)
@@ -305,6 +323,7 @@ export class GameBoxManage extends Component {
             // 如果当前节点已经是双击状态，且是小新，则不更新
             if (
                 (this.buttonData[row][col].status === 2 && this.buttonData[row][col].isXin) ||
+                (this.buttonData[row][col].status === 1 && isHover) ||
                 (this.buttonData[row][col].status === 3)
             ) {
                 return;
@@ -354,14 +373,20 @@ export class GameBoxManage extends Component {
         this.node.off(Node.EventType.TOUCH_CANCEL, this.onTouchCancel, this);
     }
 
-    // ---------- 触摸事件实现 ----------
+    // ---------- 触摸事件 ----------
     private onTouchStart(event: EventTouch) {
+        console.log('----触摸开始1----')
+        if (this.levelManage.isEnd) {
+            return;
+        }
         this.expandAllShrinkedButtons();
         const touchPos = event.getUILocation();
+        console.log('----触摸开始1----', touchPos.x, touchPos.y)
         this.touchStartPos.set(touchPos.x, touchPos.y);
         this.hasMovedExceedThreshold = false;
 
         const currentBtn = this.getButtonAtWorldPos(touchPos);
+        console.log('----触摸开始2----', currentBtn)
         if (!currentBtn) return;
 
         const now = Date.now();
@@ -376,6 +401,7 @@ export class GameBoxManage extends Component {
             (now - this.lastClickTime) < this.doubleClickDelay &&
             !this.hasMovedExceedThreshold
         ) {
+            console.log('------触发双击----')
             if (this.clickTimer) {
                 clearTimeout(this.clickTimer);
                 this.clickTimer = null;
@@ -408,6 +434,10 @@ export class GameBoxManage extends Component {
 
     // 触摸移动
     private onTouchMove(event: EventTouch) {
+        console.log('----移动了----')
+        if (this.levelManage.isEnd) {
+            return;
+        }
         const touchPos = event.getUILocation();
         const currentBtn = this.getButtonAtWorldPos(new Vec2(touchPos.x, touchPos.y));
 
@@ -442,11 +472,11 @@ export class GameBoxManage extends Component {
         if (currentBtn && currentBtn !== this.currentHoverButton) {
             this.onHoverEnter(currentBtn);
         }
-        this.currentHoverButton = currentBtn;
     }
 
     // 触摸结束
     private onTouchEnd(event: EventTouch) {
+        console.log('----触摸结束----')
         this.expandAllShrinkedButtons();
         // 检查是否移动超过阈值
         if (this.hasMovedExceedThreshold) {
@@ -462,6 +492,7 @@ export class GameBoxManage extends Component {
 
     // 触摸取消
     private onTouchCancel(event: EventTouch) {
+        console.log('----触摸取消----')
         this.expandAllShrinkedButtons();
         if (this.clickTimer) {
             clearTimeout(this.clickTimer);
@@ -595,8 +626,7 @@ export class GameBoxManage extends Component {
     private shrinkButton(buttonNode: Node) {
         if (!buttonNode) return;
         if (this.shrinkedButtons.has(buttonNode)) return; // 已经缩小
-        tween(buttonNode).stop();
-        tween(buttonNode).to(0.05, { scale: new Vec3(0.9, 0.9, 1) }).start();
+        tween(buttonNode).stop().to(0.1, { scale: new Vec3(0.9, 0.9, 1) }).start();
         this.shrinkedButtons.add(buttonNode);
     }
     // 按钮放大
@@ -607,7 +637,8 @@ export class GameBoxManage extends Component {
         tween(buttonNode).to(0.05, { scale: new Vec3(1, 1, 1) }).start();
         this.shrinkedButtons.delete(buttonNode);
     }
-    恢复所有缩小的按钮
+
+    // 恢复所有缩小的按钮
     private expandAllShrinkedButtons() {
         this.shrinkedButtons.forEach(btn => {
             if (btn && btn.isValid) {
@@ -616,6 +647,14 @@ export class GameBoxManage extends Component {
             }
         });
         this.shrinkedButtons.clear();
+    }
+
+    private gameOver() {
+        this.unregisterEvents();
+        if (this.clickTimer) {
+            clearTimeout(this.clickTimer);
+            this.clickTimer = null;
+        }
     }
 }
 

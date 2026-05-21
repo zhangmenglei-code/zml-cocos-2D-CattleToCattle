@@ -21,11 +21,8 @@ export class CupManage extends Component {
         }
     }
 
-    update(deltaTime: number) {
-        
-    }
-
     private updateCup(value: number) {
+        console.log('updateCup', value);
         this.cupLabel.string = `${value}`;
     }
 }

@@ -1,8 +1,13 @@
-import { _decorator, AudioSource, CCInteger, Component, director, instantiate, Label, Node, Prefab } from 'cc';
+import { _decorator, AudioSource, Component, director, instantiate, Label, Node, Prefab } from 'cc';
 const { ccclass, property } = _decorator;
+import { GameManage } from './GameManage';
 
 @ccclass('LevelManage')
 export class LevelManage extends Component {
+    private static _instance: LevelManage = null;
+    // 关卡Label
+    @property({ type: Label, tooltip: '关卡Label' })
+    private levelLabel: Label = null;
     // 生命预载体
     @property(Prefab)
     private hpPrefab: Prefab = null;
@@ -13,10 +18,6 @@ export class LevelManage extends Component {
     // 剩余小新展示节点
     @property({ type: Label, tooltip: '剩余小新数量展示节点' })
     private remainXinLabel: Label = null;
-
-    // 小新的总数量 = 行数 = 列数
-    @property({type: CCInteger, min: 4, max: 12, tooltip: '小新数量（>=4）'})
-    public xinNum: number = 4;
 
     // 小新的笑声音效
     @property(AudioSource)
@@ -34,18 +35,45 @@ export class LevelManage extends Component {
     private levelLoseSound: AudioSource = null;
 
     // 游戏失败节点
-    @property(Node)
+    @property({ type: Node, tooltip: '游戏失败节点' })
     private loseNode: Node = null;
+    // 游戏成功节点
+    @property({ type: Node, tooltip: '游戏成功节点' })
+    private winNode: Node = null;
 
-    private _hp: number = 3; // 生命值
+    public _xinNum: number = 4; // 小新数量（根据关卡来决定，最少4，最多12）
+    public _hp: number = 3; // 生命值
 
     public isEnd: boolean = false; // 当前关卡是否结束
 
+    // 获取单例
+    public static get instance(): LevelManage {
+        return LevelManage._instance;
+    }
+
     onLoad() {
+        // 确保只有一个实例存在
+        if (LevelManage._instance) {
+            this.node.destroy();
+            return;
+        }
+        LevelManage._instance = this;
+        // 初始化关卡Label
+        this.levelLabel.string = '第' + GameManage.instance?.level + '关';
+        // 初始化小新数量
+        // 初始化小新数量
+        this._xinNum = GameManage.instance?.xinNum ?? 4;
         // 剩余小新数量展示节点
-        this.remainXinLabel.string = this.xinNum.toString();
+        this.remainXinLabel.string = this._xinNum.toString();
         // 渲染生命值
         this.renderHp();
+    }
+
+    onDestroy() {
+        // 清理单例引用
+        if (LevelManage._instance === this) {
+            LevelManage._instance = null;
+        }
     }
 
     // 渲染生命值
@@ -66,6 +94,9 @@ export class LevelManage extends Component {
         this._hp--;
         this.renderHp();
         if (this._hp <= 0) {
+            // 生命值为0，游戏失败
+            this.isEnd = true;
+            // 停止小新错误音效
             this.xinErrorSound.stop()
             // 游戏暂停
             director.pause();
@@ -80,17 +111,34 @@ export class LevelManage extends Component {
 
     // 增加生命值
     public increaseHp() {
+        if (this._hp === 3) { 
+            return;
+        }
         this._hp++;
         this.renderHp();
     }
 
     // 减少小新
     public decreaseXin() {
-        this.xinNum--;
-        this.remainXinLabel.string = this.xinNum.toString();
-        this.xinSound.play();
-        if (this.xinNum <= 0) {
+        this._xinNum--;
+        this.remainXinLabel.string = this._xinNum.toString();
+        // 检查是否结束
+        if (this._xinNum <= 0) {
             this.isEnd = true;
+            // 游戏暂停
+            director.pause();
+            // 播放通关音效
+            this.levelWinSound.play();
+            // 显示成功节点
+            this.winNode.active = true;
+            // 增加关卡
+            GameManage.instance.addLevel()
+            // 增加奖杯
+            GameManage.instance.addCup();
+            // 当前关卡通关，增加体力
+            GameManage.instance.addEnergy();
+        } else {
+            this.xinSound.play();
         }
     }
 
@@ -102,14 +150,31 @@ export class LevelManage extends Component {
         director.loadScene('scene-home');
     }
 
-    // 重新加载当前关卡
+    // 重试当前关卡
     reLoadLevel() {
-        // 恢复游戏
-        director.resume();
-        // 隐藏失败节点
-        this.loseNode.active = false;
-        // 跳转到当前关卡
-        director.loadScene(director.getScene().name);
+        // 检测体力
+        if (GameManage.instance && GameManage.instance.subEnergy()) {
+            // 恢复游戏
+            director.resume();
+            // 隐藏失败节点
+            this.loseNode.active = false;
+            // 跳转到当前关卡
+            director.loadScene(director.getScene().name);
+        } else {
+            // 体力不足
+        }
+    }
+
+    // 下一关
+    nextLevel() {
+        if (GameManage.instance && GameManage.instance.subEnergy()) {
+            // 恢复游戏
+            director.resume();
+            // 跳转到下一关
+            director.loadScene('scene-level');   
+        } else {
+            // 体力不足
+        }
     }
 }
 

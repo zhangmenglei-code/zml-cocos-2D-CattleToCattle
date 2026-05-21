@@ -4,6 +4,9 @@ const { ccclass, property } = _decorator;
 
 @ccclass('GameUiManage')
 export class GameUiManage extends Component {
+    // 开始游戏按钮
+    @property({type: Node})
+    private startBtnNode: Node = null;
     // 体力
     @property({type: Label})
     private energyLabel: Label = null;
@@ -12,6 +15,13 @@ export class GameUiManage extends Component {
     private levelLabel: Label = null;
 
     onLoad() {
+        // 初始化开始游戏按钮点击事件
+        this.startBtnNode.on(Node.EventType.TOUCH_END, this.startGame, this);
+    }
+
+    // 开始游戏按钮点击事件
+    private startGame() {
+        GameManage.instance.startGame();
     }
 
     onDestroy() {
@@ -28,12 +38,8 @@ export class GameUiManage extends Component {
         }
     }
 
-    update(deltaTime: number) {
-        
-    }
-
     private updateEnergy(value: number) {
-        this.energyLabel.string = `${value} / ${GameManage.instance.maxEnergy}`;
+        this.energyLabel.string = `${value}/${GameManage.instance.maxEnergy}`;
     }
     private updateLevel(value: number) {
         this.levelLabel.string = `第 ${value} 关`;

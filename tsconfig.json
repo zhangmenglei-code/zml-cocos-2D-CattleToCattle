@@ -5,6 +5,6 @@
   /* Add your custom configuration here. */
   "compilerOptions": {
     "strict": false,
-    "ignoreDeprecations": "6.0"
+    "ignoreDeprecations": "5.0"
   }
 }

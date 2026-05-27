@@ -1,48 +1,40 @@
 import { _decorator, Component, director, Label, Node } from 'cc';
-import { GameManage } from './GameManage';
 const { ccclass, property } = _decorator;
 
 @ccclass('GameUiManage')
 export class GameUiManage extends Component {
-    // 开始游戏按钮
-    @property({type: Node})
-    private startBtnNode: Node = null;
-    // 体力
-    @property({type: Label})
-    private energyLabel: Label = null;
-    // 关卡
-    @property({type: Label})
-    private levelLabel: Label = null;
+    // 设置弹框
+    @property({type: Node, tooltip: '设置弹框预载体节点'})
+    private setUpDialogNode: Node = null;
 
-    onLoad() {
-        // 初始化开始游戏按钮点击事件
-        this.startBtnNode.on(Node.EventType.TOUCH_END, this.startGame, this);
+    //单例
+    private static _instance: GameUiManage = null;
+    // 获取单例
+    public static get instance(): GameUiManage {
+        return GameUiManage._instance;
     }
 
-    // 开始游戏按钮点击事件
-    private startGame() {
-        GameManage.instance.startGame();
+    onLoad() {
+        // 确保只有一个实例存在
+        if (GameUiManage._instance) {
+            this.node.destroy();
+            return;
+        }
+        GameUiManage._instance = this;
+        // 保持节点持久化
+        director.addPersistRootNode(this.node);
     }
 
     onDestroy() {
-        GameManage.instance.off('energyChanged', this.updateEnergy, this);
-        GameManage.instance.off('levelChanged', this.updateLevel, this);
-    }
-
-    start() {
-        if (GameManage.instance !== null) {
-            GameManage.instance.on('energyChanged', this.updateEnergy, this);
-            GameManage.instance.on('levelChanged', this.updateLevel, this);
-            this.updateEnergy(GameManage.instance.energy);
-            this.updateLevel(GameManage.instance.level);
+        // 清理单例引用
+        if (GameUiManage._instance === this) {
+            GameUiManage._instance = null;
         }
     }
 
-    private updateEnergy(value: number) {
-        this.energyLabel.string = `${value}/${GameManage.instance.maxEnergy}`;
-    }
-    private updateLevel(value: number) {
-        this.levelLabel.string = `第 ${value} 关`;
+    // 设置弹框显示
+    private setPopupVisible(visible: boolean) {
+        this.setUpDialogNode.active = visible;
     }
 }
 

@@ -3,55 +3,87 @@ const { ccclass, property } = _decorator;
 
 @ccclass('LoadingManage')
 export class LoadingManage extends Component {
-    // 进度条节点
     @property(ProgressBar)
     progressBarNode: ProgressBar = null;
 
-    // 小白节点
     @property(Node)
     xiaoBaiNode: Node = null;
 
     barWidth: number = 300;
-    barTimer: number = 0; // 定时器
-    barRate: number = 2; // 速率
+    totalScenes: number = 2;
+    loadedScenes: number = 0;
     
+    targetProgress: number = 0;
+    currentProgress: number = 0;
+    minLoadTime: number = 2000;
+    loadStartTime: number = 0;
+    isComplete: boolean = false;
+    
+    xiaoBaiWidth: number = 0;
 
     onLoad() {
-        // 初始化进度条
         this.progressBarNode.progress = 0;
+        this.currentProgress = 0;
+        this.targetProgress = 0;
+        
+        const xiaoBaiTransform = this.xiaoBaiNode.getComponent(UITransform);
+        if (xiaoBaiTransform) {
+            this.xiaoBaiWidth = xiaoBaiTransform.contentSize.width;
+        }
     }
 
     start() {
-        // 开始加载资源
-        this.loadResource();
-        // 加载主界面
-        director.preloadScene('scene-home');
-        // 加载游戏场景
-        director.preloadScene('scene-level');
-    }
-
-    update(deltaTime: number) {
-        
-    }
-
-    // 模拟加载
-    loadResource() {
-        // 显示小白节点
         this.xiaoBaiNode.active = true;
-        // 开始加载资源
-        this.barTimer = setInterval(() => {
-            this.progressBarNode.progress += (0.01 * this.barRate);
-            // 小白节点x轴跟随进度条移动
-            const x = this.xiaoBaiNode.position.x + (this.barWidth / 100 * this.barRate);
-            this.xiaoBaiNode.setPosition(x, 10, 0);
-            // 当进度条满了，清除定时器
-            if (this.progressBarNode.progress >= 1) {
-                clearInterval(this.barTimer);
-                // 跳转主场景
+        this.loadStartTime = Date.now();
+        this.loadScenes();
+    }
+
+    update() {
+        if (this.currentProgress < this.targetProgress) {
+            this.currentProgress += (this.targetProgress - this.currentProgress) * 0.1;
+            if (this.currentProgress > this.targetProgress - 0.001) {
+                this.currentProgress = this.targetProgress;
+            }
+            this.progressBarNode.progress = this.currentProgress;
+            this.updateXiaoBaiPosition(this.currentProgress);
+        }
+        
+        if (this.isComplete && this.currentProgress >= 1) {
+            const elapsed = Date.now() - this.loadStartTime;
+            if (elapsed >= this.minLoadTime) {
                 director.loadScene('scene-home');
             }
-        }, 100);
+        }
+    }
+
+    loadScenes() {
+        const loadSceneWithProgress = (sceneName: string, onComplete: () => void) => {
+            director.preloadScene(
+                sceneName,
+                (completedCount: number, totalCount: number) => {
+                    const sceneProgress = completedCount / totalCount;
+                    this.targetProgress = (this.loadedScenes + sceneProgress) / this.totalScenes;
+                },
+                () => {
+                    this.loadedScenes++;
+                    if (this.loadedScenes >= this.totalScenes) {
+                        this.targetProgress = 1;
+                        this.isComplete = true;
+                    }
+                    onComplete();
+                }
+            );
+        };
+
+        loadSceneWithProgress('scene-home', () => {
+            loadSceneWithProgress('scene-level', () => {});
+        });
+    }
+
+    updateXiaoBaiPosition(progress: number) {
+        const barStartX = -this.barWidth / 2;
+        const progressX = barStartX + progress * this.barWidth;
+        const xiaoBaiX = progressX - this.xiaoBaiWidth / 2;
+        this.xiaoBaiNode.setPosition(xiaoBaiX, 10, 0);
     }
 }
-
-

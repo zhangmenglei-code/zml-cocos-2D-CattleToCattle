@@ -34,15 +34,16 @@ export class LevelManage extends Component {
     @property({ type: AudioSource, tooltip: '当前关卡失败音效' })
     private levelLoseSound: AudioSource = null;
 
-    // 游戏失败节点
-    @property({ type: Node, tooltip: '游戏失败节点' })
+    // 游戏失败弹框节点
+    @property({ type: Node, tooltip: '游戏失败弹框节点' })
     private loseNode: Node = null;
-    // 游戏成功节点
-    @property({ type: Node, tooltip: '游戏成功节点' })
+    // 游戏成功弹框节点
+    @property({ type: Node, tooltip: '游戏成功弹框节点' })
     private winNode: Node = null;
 
     public _xinNum: number = 4; // 小新数量（根据关卡来决定，最少4，最多12）
     public _hp: number = 3; // 生命值
+    public _findXin: number = 2; // 已找到的小新数量
 
     public isEnd: boolean = false; // 当前关卡是否结束
 
@@ -58,13 +59,14 @@ export class LevelManage extends Component {
             return;
         }
         LevelManage._instance = this;
+        // 初始化小新数量
+        this._xinNum = GameManage.instance?.xinNum;
+        // 初始化已找到的小新数量
+        this._findXin = Math.floor(this._xinNum / 2)
         // 初始化关卡Label
         this.levelLabel.string = '第' + GameManage.instance?.level + '关';
-        // 初始化小新数量
-        // 初始化小新数量
-        this._xinNum = GameManage.instance?.xinNum ?? 4;
         // 剩余小新数量展示节点
-        this.remainXinLabel.string = this._xinNum.toString();
+        this.remainXinLabel.string = (this._xinNum - this._findXin).toString();
         // 渲染生命值
         this.renderHp();
     }
@@ -104,6 +106,12 @@ export class LevelManage extends Component {
             this.loseNode.active = true;
             // 播放游戏失败音效
             this.levelLoseSound.play();
+            // 如果是生存模式，则不展示重试按钮，并且退出按钮居中
+            if (GameManage.instance.gameType === 2) {
+                this.loseNode.getChildByName('ResetGame').active = false;
+                this.loseNode.getChildByName('ReturnHome').setPosition(0, -350);
+            }
+
         } else {
             this.xinErrorSound.play();
         }
@@ -126,11 +134,16 @@ export class LevelManage extends Component {
         if (this._xinNum <= 0) {
             this.isEnd = true;
             // 游戏暂停
-            director.pause();
+            // director.pause();
             // 播放通关音效
             this.levelWinSound.play();
             // 显示成功节点
             this.winNode.active = true;
+            // 如果是生存模式，则不展示下一关按钮，并且返回主页居中
+            if (GameManage.instance.gameType === 2) {
+                this.winNode.getChildByName('NextLevel').active = false;
+                this.winNode.getChildByName('BackBtn').setPosition(0, -350);
+            }
             // 增加关卡
             GameManage.instance.addLevel()
             // 增加奖杯
@@ -138,12 +151,15 @@ export class LevelManage extends Component {
             // 当前关卡通关，增加体力
             GameManage.instance.addEnergy();
         } else {
+            // 播放小新音效
             this.xinSound.play();
         }
     }
 
     // 返回主界面
     backToMain() {
+        // 初始化数据
+        GameManage.instance.initData();
         // 恢复游戏
         director.resume();
         // 跳转到主界面

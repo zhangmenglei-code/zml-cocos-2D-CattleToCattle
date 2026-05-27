@@ -20,7 +20,9 @@ export class GameManage extends Component {
     private _cup: number = 0; // 奖杯
     private _energy: number = 100; // 体力
     private _level: number = 1; // 关卡
+    private _survival: number = 2; // 生存次数
 
+    public gameType: number = 1; // 游戏类型（1：普通模式，2：生存模式）
     public xinNum: number = 0; // 小新数量（根据关卡来决定，最少4，最多12）
     public maxXinNum: number = 12; // 最大小新数量
     public maxEnergy: number = 100; // 最大体力
@@ -104,6 +106,16 @@ export class GameManage extends Component {
         this.emit('levelChanged', this._level);
         this.emit('xinNumChanged', this.xinNum);
     }
+    // 生存次数
+    public get survival(): number {
+        return this._survival;
+    }
+    public set survival(value: number) {
+        if (this._survival === value) return;
+        this._survival = Math.max(0, value);
+        this.setData();
+        this.emit('survivalChanged', this._survival);
+    }
 
     // -------------- 数据公共方法 -------------
     // 增加奖杯
@@ -134,6 +146,18 @@ export class GameManage extends Component {
     public addLevel(value: number = 1) {
         this.level += value;
     }
+    // 增加生存次数
+    public addSurvival(value: number = 1) {
+        this.survival += value;
+    }
+    // 减少生存次数
+    public subSurvival(value: number = 1) {
+        if (this.survival >= value) {
+            this.survival -= value;
+            return true;
+        }
+        return false;
+    }
 
     // ------------- 初始化数据 -------------
     initData() {
@@ -143,6 +167,7 @@ export class GameManage extends Component {
             this._cup = data.cup ?? 0;
             this._energy = data.energy ?? this.maxEnergy;
             this._level = data.level ?? 1;
+            this._survival = data.survival ?? 2;
         }
         this.setData();
         // 根据关卡更新小新数量
@@ -152,6 +177,7 @@ export class GameManage extends Component {
         this.emit('energyChanged', this._energy); // 体力
         this.emit('levelChanged', this._level); // 关卡
         this.emit('xinNumChanged', this.xinNum); // 小新数量
+        this.emit('survivalChanged', this._survival); // 生存次数
     }
 
     // 存储数据
@@ -159,7 +185,8 @@ export class GameManage extends Component {
         const gameData = {
             cup: this._cup,
             energy: this._energy,
-            level: this._level
+            level: this._level,
+            survival: this._survival
         }
         localStorage.setItem('gameData', JSON.stringify(gameData));
     }
@@ -191,16 +218,20 @@ export class GameManage extends Component {
         this.eventTarget.emit(event, value);
     }
 
-    // 开始游戏
-    startGame() {
+    // 开始游戏 type: 1 普通模式 2 生存模式
+    startGame(type: number) {
         // 检查体力是否足够
-        if (this.energy < this.levelEnergy) {
-            return false;
-        }
         if (!this.subEnergy()) {
             return false;
         }
-        // 跳转到游戏场景
+        if (this._survival === 0 && type === 2) {
+            return false;
+        }
+        if (type === 2) {
+            this.survival--;
+            this.xinNum = 12;
+        }
+        this.gameType = type;
         director.loadScene('scene-level');
         return true;
     }

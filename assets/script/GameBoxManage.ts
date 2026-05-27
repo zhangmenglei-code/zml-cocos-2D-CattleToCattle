@@ -66,6 +66,8 @@ export class GameBoxManage extends Component {
     // 按钮内的节点（小新、X）占比
     private scaleFactor: number = 0.8;
 
+    private overLoading: boolean = false;
+
     onLoad() {
         // 小新的数量 = 行数 = 列数
         this.BoxItemRows = LevelManage.instance._xinNum;
@@ -85,6 +87,7 @@ export class GameBoxManage extends Component {
 
     // 游戏结束
     private gameOver() {
+        this.overLoading = false
         this.xinNodes = []
         this.buttonNodesArr = []
         this.buttonData = []
@@ -131,15 +134,13 @@ export class GameBoxManage extends Component {
         // 随机一个小新不需要进行颜色渲染
         let randomIndexArr: any[] = []
         if (this.BoxItemRows >= 6) {
-            randomIndexArr = this.getRandomIndices(xinDatas.length, 2);
+            randomIndexArr = this.getRandomIndices(xinDatas.length, LevelManage.instance._findXin);
         } else {
             randomIndexArr = this.getRandomIndices(xinDatas.length, 1);
         }
         const xinDatasList = xinDatas.filter((item, index) => randomIndexArr.indexOf(index) === -1);
         // 这个小新需要首次渲染时，就是翻开的
-        randomIndexArr.forEach(index => {
-            this.buttonData[xinDatas[index].row][xinDatas[index].col].status = 2;
-        })
+        this.buttonData[xinDatas[randomIndexArr[0]].row][xinDatas[randomIndexArr[0]].col].status = 2;
         // 处理空白节点，当前节点的颜色就是离它最近的小新节点的颜色
         for (let i = 0; i < blankDatas.length; i++) {
             const currentNode = blankDatas[i]
@@ -355,6 +356,7 @@ export class GameBoxManage extends Component {
 
     // 双击
     private onDoubleClick(btnNode: Node) {
+        if (this.overLoading) return;
         const pos = this.nodeToPosMap.get(btnNode);
         if (pos) {
             const { row, col } = pos;
@@ -380,8 +382,11 @@ export class GameBoxManage extends Component {
                         xinAni.on(Animation.EventType.FINISHED, () => {
                             xinAni.play(clips[0].name);
                         });
-                        
+                        LevelManage.instance.decreaseXin();
                     } else {
+                        this.overLoading = true;
+                        // 赢的时候，播放一次小新音效
+                        LevelManage.instance.xinSound.play();
                         // 播放所有小新动画
                         this.xinNodes.forEach(itemNode => {
                             // 播放动画
@@ -395,9 +400,12 @@ export class GameBoxManage extends Component {
                         // 所有按钮恢复原始大小
                         this.resetAllButtonsScale();
                         // 游戏结束
-                        this.gameOver()
+                        setTimeout(() => {
+                            this.overLoading = false;
+                            this.gameOver()
+                            LevelManage.instance.decreaseXin();
+                        }, 1000);
                     }
-                    LevelManage.instance.decreaseXin();
                 } else {
                     this.buttonData[row][col].status = 3
                     const xNode = instantiate(this.BoxItemXPrefab)
@@ -424,6 +432,7 @@ export class GameBoxManage extends Component {
 
     // 单击
     private onSingleClick(btnNode: Node) {
+        if (this.overLoading) return;
         const pos = this.nodeToPosMap.get(btnNode);
         if (pos) {
             const { row, col } = pos;

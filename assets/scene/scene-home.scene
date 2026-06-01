@@ -4199,6 +4199,12 @@
     "survivalBtnNode": {
       "__id__": 27
     },
+    "settingBtnNode": {
+      "__id__": 43
+    },
+    "addEnergyBtnNode": {
+      "__id__": 62
+    },
     "energyLabel": {
       "__id__": 61
     },

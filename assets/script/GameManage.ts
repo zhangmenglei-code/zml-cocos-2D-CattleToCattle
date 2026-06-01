@@ -1,5 +1,6 @@
 import { _decorator, Component, director, Node } from 'cc';
 const { ccclass } = _decorator;
+import { GameUiManage } from './GameUiManage';
 
 const LEVEL_CONFIG = [
     { level: 1, xinNum: 4 },
@@ -140,6 +141,8 @@ export class GameManage extends Component {
             this.energy -= value;
             return true;
         }
+        // 体力不足，提示用户
+        GameUiManage.instance.showToast("体力不足");
         return false;
     }
     // 增加关卡
@@ -156,6 +159,8 @@ export class GameManage extends Component {
             this.survival -= value;
             return true;
         }
+        // 生存次数不足，提示用户
+        GameUiManage.instance.showToast("次数不足");
         return false;
     }
 
@@ -220,11 +225,12 @@ export class GameManage extends Component {
 
     // 开始游戏 type: 1 普通模式 2 生存模式
     startGame(type: number) {
-        // 检查体力是否足够
-        if (!this.subEnergy()) {
+        // 如果是生存模式，检查生存次数是否足够
+        if (type === 2 && !this.subSurvival()) {
             return false;
         }
-        if (this._survival === 0 && type === 2) {
+        // 检查体力是否足够
+        if (!this.subEnergy()) {
             return false;
         }
         if (type === 2) {

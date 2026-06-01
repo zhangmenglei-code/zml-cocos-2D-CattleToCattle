@@ -1,6 +1,7 @@
 import { _decorator, AudioSource, Component, director, instantiate, Label, Node, Prefab } from 'cc';
 const { ccclass, property } = _decorator;
 import { GameManage } from './GameManage';
+import { GameUiManage } from './GameUiManage';
 
 @ccclass('LevelManage')
 export class LevelManage extends Component {
@@ -41,6 +42,14 @@ export class LevelManage extends Component {
     @property({ type: Node, tooltip: '游戏成功弹框节点' })
     private winNode: Node = null;
 
+    // 设置弹框节点
+    @property({ type: Node, tooltip: '设置弹框节点' })
+    private settingPanelNode: Node = null;
+
+    // 风间的音频
+    @property(AudioSource)
+    private fengjianSound: AudioSource = null;
+
     public _xinNum: number = 4; // 小新数量（根据关卡来决定，最少4，最多12）
     public _hp: number = 3; // 生命值
     public _findXin: number = 2; // 已找到的小新数量
@@ -69,6 +78,8 @@ export class LevelManage extends Component {
         this.remainXinLabel.string = (this._xinNum - this._findXin).toString();
         // 渲染生命值
         this.renderHp();
+        // 监听设置按钮点击事件
+        this.settingPanelNode.on(Node.EventType.TOUCH_END, this.showSettingPanel, this);
     }
 
     onDestroy() {
@@ -191,6 +202,29 @@ export class LevelManage extends Component {
         } else {
             // 体力不足
         }
+    }
+
+    // 设置按钮点击事件
+    private showSettingPanel() {
+        GameUiManage.instance.showSettingPanel();
+    }
+
+    // 呼叫风间
+    public callFengjian() {
+        GameUiManage.instance.showToast('太过分了，怎么可以用道具啊');
+        this.fengjianSound.play();
+    }
+
+    // 呼叫妮妮
+    public callNinni() {
+        GameUiManage.instance.showToast('妮妮已呼出');
+        this.xinSound.play();
+    }
+
+    // 呼叫阿呆
+    public callAdai() {
+        GameUiManage.instance.showToast('阿呆已呼出');
+        this.xinSound.play();
     }
 }
 

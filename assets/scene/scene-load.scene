@@ -1478,7 +1478,14 @@
     },
     "_enabled": true,
     "__prefab": null,
-    "setUpDialogNode": null,
+    "settingPanelPrefab": {
+      "__uuid__": "25972e70-3ed9-4a56-8afe-ddcece07d54b",
+      "__expectedType__": "cc.Prefab"
+    },
+    "toastPrefab": {
+      "__uuid__": "11d193db-de3a-43ae-ae54-d6c5ef0924d6",
+      "__expectedType__": "cc.Prefab"
+    },
     "_id": "66wyvRsBpKUq3M1cuGJAJl"
   },
   {

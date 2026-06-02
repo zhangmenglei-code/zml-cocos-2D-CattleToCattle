@@ -49,6 +49,15 @@ export class LevelManage extends Component {
     // 风间的音频
     @property(AudioSource)
     private fengjianSound: AudioSource = null;
+    // 妮妮的音频
+    @property(AudioSource)
+    private niniSound: AudioSource = null;
+    // 阿呆的音频
+    @property(AudioSource)
+    private adaiSound: AudioSource = null;
+    // 正南的音频
+    @property(AudioSource)
+    private zhengnanSound: AudioSource = null;
 
     public _xinNum: number = 4; // 小新数量（根据关卡来决定，最少4，最多12）
     public _hp: number = 3; // 生命值
@@ -211,20 +220,26 @@ export class LevelManage extends Component {
 
     // 呼叫风间
     public callFengjian() {
-        GameUiManage.instance.showToast('太过分了，怎么可以用道具啊');
+        GameUiManage.instance.showToast('太过分了，怎么可以用道具啊！');
         this.fengjianSound.play();
     }
 
     // 呼叫妮妮
     public callNinni() {
-        GameUiManage.instance.showToast('妮妮已呼出');
-        this.xinSound.play();
+        GameUiManage.instance.showToast('真是没用！');
+        this.niniSound.play();
     }
 
     // 呼叫阿呆
     public callAdai() {
-        GameUiManage.instance.showToast('阿呆已呼出');
-        this.xinSound.play();
+        GameUiManage.instance.showToast('呆~~~');
+        this.adaiSound.play();
+    }
+
+    // 呼叫正南
+    public callZhengnan() {
+        GameUiManage.instance.showToast('真的太难了啦');
+        this.zhengnanSound.play();
     }
 }
 

@@ -64,9 +64,12 @@ export class GameBoxManage extends Component {
     private nodeToPosMap: Map<Node, { row: number, col: number }> = new Map();
 
     // 按钮内的节点（小新、X）占比
-    private scaleFactor: number = 0.8;
+    private scaleFactor: number = 0.9;
 
     private overLoading: boolean = false;
+
+    // 第一次点击的按钮的状态
+    private firstClickBtnStatus: number = 0;
 
     onLoad() {
         // 小新的数量 = 行数 = 列数
@@ -270,6 +273,8 @@ export class GameBoxManage extends Component {
 
         const currentBtn = this.getButtonAtWorldPos(touchPos);
         if (!currentBtn) return;
+        const pos1 = this.nodeToPosMap.get(currentBtn);
+        this.firstClickBtnStatus = this.buttonData[pos1.row][pos1.col].status;
         // 收缩按钮
         this.shrinkButton(currentBtn);
         this.handleClickOnTouchStart(currentBtn)
@@ -436,6 +441,15 @@ export class GameBoxManage extends Component {
         const pos = this.nodeToPosMap.get(btnNode);
         if (pos) {
             const { row, col } = pos;
+            // 如果第一个节点是空节点，则滑动经过的所有带X的节点则不处理，相反，第一个节点是X节点，则所有空节点都不处理
+            console.log('pos1', this.firstClickBtnStatus)
+            // let isHandle = true
+            // if (
+            //     (this.buttonData[pos1.row][pos1.col].status !== 0 && this.buttonData[row][col].status === 0) ||
+            //     (this.buttonData[pos1.row][pos1.col].status === 0 && this.buttonData[row][col].status !== 0)
+            // ) {
+            //     isHandle = false;
+            // }
             // 1、当前节点已经是双击状态且是小新，2、当前节点是双击触发的失败，都不进行处理
             if (
                 (this.buttonData[row][col].status === 2 && this.buttonData[row][col].isXin) ||
@@ -444,14 +458,14 @@ export class GameBoxManage extends Component {
                 return;
             }
             // 处理按钮上的节点
-            if (this.buttonData[row][col].status === 0) {
+            if (this.buttonData[row][col].status === 0 && this.firstClickBtnStatus === 0) {
                 // 如果是单击，则添加X节点，并播放动画
                 this.buttonData[row][col].status = 1
                 const xNode = instantiate(this.BoxItemXPrefab)
                 const xTransform = xNode.getComponent(UITransform);
                 xNode.parent = btnNode;
                 xTransform.setContentSize(this.buttonWidth * this.scaleFactor, this.buttonHeight * this.scaleFactor);
-            } else {
+            } else if (this.buttonData[row][col].status === 1 && this.firstClickBtnStatus === 1) {
                 // 如果已经展示了X节点，则去除X节点
                 this.buttonData[row][col].status = 0
                 const BoxItemXNode = btnNode.getChildByName('BoxItemXPrefab')

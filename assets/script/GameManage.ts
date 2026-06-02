@@ -233,6 +233,7 @@ export class GameManage extends Component {
         if (!this.subEnergy()) {
             return false;
         }
+        this.initData()
         if (type === 2) {
             this.survival--;
             this.xinNum = 12;
